@@ -4,10 +4,11 @@ description: >-
   How to register, configure, and ship an app built on this starter kit — the app.json
   manifest (extendables, the registry settings URL, App Store listing), the Peek Development
   Hub, environment variables and secrets (PEEK_APP_SECRET / PEEK_APP_ID / PEEK_API_URL /
-  PEEK_APP_URL), and deployment (Vercel + Supabase recommended). Use when editing
+  PEEK_APP_URL), and deployment (Vercel + Neon recommended). Use when editing
   app.json, setting up env/secrets, registering the app with Peek, changing the embed/webhook
   URLs, or deploying. Triggers on "app.json", "manifest", "Development Hub", "deploy", "Vercel",
-  "Supabase", "env vars", "secrets", "publish the app", "register the app", "extendable".
+  "Neon", "database", "Supabase", "env vars", "secrets", "publish the app", "register the app",
+  "extendable".
 ---
 
 # Manifest, registration & deployment
@@ -19,10 +20,21 @@ Development Hub, and **deployment** to your host. This skill covers all three.
 > **Hosting is your choice — this skill recommends a default, it doesn't mandate one.**
 > Language/framework/SDK/test-runner are fixed by the kit; the **host and database are the
 > "moving layer"** you pick per project (research current best practice at build time). The
-> recommended default is **Vercel** (hosting) + **Supabase / Postgres** (data, when you add
-> persistence), with React client components + Supabase Realtime for any live UI — it stands up
-> fast, pairs cleanly with Next.js, and has strong security defaults. Swap it for any host you
-> prefer.
+> recommended default is **Vercel** (hosting) + **Neon serverless Postgres** (data, when you add
+> persistence), accessed **server-side only** via a `DATABASE_URL`, with any live UI driven by
+> polling/SSE from your own API routes — it stands up fast, pairs cleanly with Next.js, and
+> scales to zero. Swap it for any host/DB you prefer.
+
+> **Why Neon and not Supabase?** Supabase's value is a bundle built around **its own auth** —
+> Row Level Security keyed to a Supabase-signed JWT, client-direct DB access, Realtime gated by
+> RLS. This kit authenticates every request with **Peek's token instead** (verified server-side;
+> the browser never touches the DB directly — it calls your API routes, which scope data by
+> `installDataId`). So Supabase's differentiators go unused, and its third-party-auth path can't
+> even accept the Peek token (it requires *asymmetrically* signed JWTs; the peek-auth token is
+> symmetrically signed with `PEEK_APP_SECRET`). You'd end up using only the service-role key and
+> bypassing RLS — i.e. paying in complexity for features you can't use. **Neon is just Postgres**
+> (one server-side connection string, scope rows by `installDataId`), which is exactly the shape
+> this architecture needs. Use Supabase only if you have a specific reason to.
 
 ## 1. The manifest — `app.json`
 
@@ -71,9 +83,10 @@ back to baked knowledge.
 
 **Secret hygiene:** secrets live in your **host's secret store** — Vercel **Environment
 Variables** by default (Project → Settings → Environment Variables), or the equivalent on
-whatever host you choose — never in the repo or the client bundle. If you add Supabase, keep
-the **service role key server-only** and expose only the **anon key** to the client. No PII or
-tokens in logs. In CI, the build uses **placeholder** env values (see
+whatever host you choose — never in the repo or the client bundle. If you add Neon, keep the
+**`DATABASE_URL` server-only** — the DB is reached only from your API routes, never the client
+bundle (there is no client-direct DB access in this kit). No PII or tokens in logs. In CI, the
+build uses **placeholder** env values (see
 `.github/workflows/ci.yml`) purely to satisfy env validation — real values live only in the
 deployment environment.
 
@@ -83,15 +96,18 @@ Next.js deploys to **Vercel** with zero Docker config — Vercel builds it nativ
 recommended default; any Node-capable host works.
 
 - **Connect the repo** to a Vercel project (Import Git Repository).
-- **Set env vars** in the project settings (the four in §3; Supabase keys if used).
+- **Set env vars** in the project settings (the four in §3; the Neon `DATABASE_URL` if used).
 - **Build/output** is detected automatically for Next.js — no `Dockerfile` needed on Vercel.
 - **`.github/workflows/ci.yml`** — on every branch: lint → typecheck → test w/ coverage →
   build. Keep it green (see `testing-peek-apps`). This is host-agnostic and stays.
 
-> **Data/persistence (when needed):** Phase 0 ships no database. When you add one, **Supabase
-> (Postgres)** is the recommended default — create a project, take the project URL + anon key
-> (client) + service role key (server only), and scope rows to `installDataId`
-> (see `peek-backoffice-api`). Supabase Realtime + React client components cover live UI.
+> **Data/persistence (when needed):** Phase 0 ships no database. When you add one, **Neon
+> (serverless Postgres)** is the recommended default — create a project, take its `DATABASE_URL`
+> (server-only), connect from your API routes, and scope rows to `installDataId`
+> (see `peek-backoffice-api`). For live UI, poll or stream (SSE) from your own routes. **Not
+> Supabase** — its auth/RLS/Realtime model is built around its own JWT and can't consume Peek's
+> (symmetrically signed) token, so you'd use none of it; see the "Why Neon and not Supabase?"
+> note at the top.
 
 > **Ignore the Fly.io files.** `Dockerfile`, `fly.toml`, and `fly-deploy.yml` are placeholder
 > scaffolding scheduled for removal — don't build a Fly deploy around them.
@@ -101,7 +117,7 @@ recommended default; any Node-capable host works.
 - [ ] Vercel project created and connected to the repo.
 - [ ] `PEEK_APP_URL` set to the deployed URL; `app.json` `base_url` matches it.
 - [ ] Env vars set in the host (`PEEK_APP_SECRET`, `PEEK_APP_ID`, `PEEK_APP_URL`, and
-      `PEEK_API_URL` if overriding the default); Supabase keys if used.
+      `PEEK_API_URL` if overriding the default); Neon `DATABASE_URL` if used.
 - [ ] Register the embed URL (`<base_url>/peek-pro/main`) and any webhook URLs in the Hub /
       `app.json`; validate in **sandbox** first.
 - [ ] Confirm the embed loads in the iframe (CSP `frame-ancestors` is set in `next.config.ts`).

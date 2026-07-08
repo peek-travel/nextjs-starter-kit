@@ -113,7 +113,7 @@ Peek data routinely includes sensitive PII (guest names, emails, phones, payment
 - HTTPS in transit; encrypt at rest; restrict who/what can read it.
 - Store the **minimum** necessary; prefer referencing Peek IDs over copying PII.
 - Keep secrets out of source control and client bundles — use your host's secret store
-  (Vercel env vars by default; if using Supabase, keep the service role key server-only).
+  (Vercel env vars by default; if using Neon, keep the `DATABASE_URL` server-only).
 - **Never log PII or tokens.** Redact.
 
 ## Related skills

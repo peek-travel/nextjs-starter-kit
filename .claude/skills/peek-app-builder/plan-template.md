@@ -32,8 +32,8 @@ available via the SDK / webhook payload / npm model. Don't list a field you have
 
 ## 5. Hosting & persistence
 - **Host:** <recommended default: **Vercel** — or the chosen host>
-- **Database:** <none for Phase 0 — or **Supabase / Postgres** if persistence is needed>
-- **Real-time (if any):** <Supabase Realtime + React client components — or N/A>
+- **Database:** <none for Phase 0 — or **Neon (serverless Postgres)**, server-side only, if persistence is needed>
+- **Real-time (if any):** <polling / SSE from your own API routes — or N/A>
 
 Phase 0 ships no DB. If this app needs one:
 - `installDataId = installId + installTimestamp`; store `currentInstallDataId` on the account
@@ -42,7 +42,7 @@ Phase 0 ships no DB. If this app needs one:
 - **PII handling:** <what is stored vs. referenced by Peek ID; encryption; retention>
 
 ## 6. Security
-- Secrets in the host's secret store (Vercel env vars by default; Supabase service role key
+- Secrets in the host's secret store (Vercel env vars by default; Neon `DATABASE_URL`
   server-only) — never in the repo or client bundle. See `peek-app-manifest-and-deploy`.
 - Webhook delivery verification (you verify it — scheme: `ASK THE MCP`); idempotent handlers.
 - No PII or tokens in logs.
@@ -50,7 +50,7 @@ Phase 0 ships no DB. If this app needs one:
 ## 7. Setup the user must do (drives step 6)
 - [ ] Peek **Development Hub** access + app registration (app ID + `PEEK_APP_SECRET`)
 - [ ] Host project (Vercel by default) created + env/secrets set
-- [ ] Database (Supabase) project + keys — only if the plan needs persistence
+- [ ] Database (Neon) project + `DATABASE_URL` — only if the plan needs persistence
 - [ ] Build-time Peek MCP: `PEEK_MCP_URL` / `PEEK_MCP_TOKEN` (optional; falls back if unset)
 - [ ] <any other API keys the plan calls for>
 
