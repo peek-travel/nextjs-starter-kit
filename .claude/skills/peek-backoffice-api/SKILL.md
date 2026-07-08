@@ -24,9 +24,13 @@ hand-write GraphQL.** This skill covers what it can do and the data rules around
 
 - Peek exposes a **GraphQL API**, but **raw GraphQL against an installed account is risky** —
   misuse can harm the account's underlying infrastructure. **Do not hand-write GraphQL.**
-- `PeekAccessService` (from `@peektravel/app-utilities`, **Node-only**) is the API-translation
-  layer. It's already wired: `lib/peek-service.ts` constructs it from the verified token's
-  install ID and the app's env (`PEEK_APP_SECRET`, `PEEK_APP_ID`, `PEEK_API_URL`, `mode: "v2"`).
+- **Any server-side (Node) interaction with the Peek Pro API goes through
+  `@peektravel/app-utilities` (`PeekAccessService`) — never a hand-rolled HTTP or GraphQL
+  client.** The SDK is Node-only by design; since every Peek API call in this kit is server-side,
+  app-utilities is *the* way you talk to Peek — from authenticated routes, the MCP endpoint,
+  webhook handlers, scripts, cron jobs, anywhere. It's already wired: `lib/peek-service.ts`
+  constructs it from the verified token's install ID and the app's env (`PEEK_APP_SECRET`,
+  `PEEK_APP_ID`, `PEEK_API_URL`, `mode: "v2"`).
 - If the SDK seems to lack a method you need, **`ASK THE MCP`** whether one exists before even
   considering raw GraphQL — and flag the risk to the user.
 

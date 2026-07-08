@@ -121,7 +121,9 @@ yourself, but for "does it actually run in the embed," **notify the user to run
 - **Never build your own login for the embedded surface.** Identity comes from Peek via the
   peek-auth token. See `peek-embed-and-auth`. (A separate developer/admin surface *may* have
   its own auth.)
-- **Prefer the SDK (`PeekAccessService`); never hand-write GraphQL.** See `peek-backoffice-api`.
+- **In any Node/server-side code, reach the Peek Pro API only through `@peektravel/app-utilities`
+  (`PeekAccessService`) — never a raw HTTP/GraphQL call, and never hand-write GraphQL.** See
+  `peek-backoffice-api`.
 - **Expose the app's key functionality as an MCP endpoint by default** so the App Store AI
   orchestrator can drive it without the UI. Reuse the *same* auth as the UI; curate the tool
   list with the user (reads by default, gate writes). See `peek-mcp-endpoint`. Skip only if the
