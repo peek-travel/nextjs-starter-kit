@@ -14,6 +14,8 @@ The POST flow (`app/peek-pro/main/route.ts`) exists only because `page.tsx` cann
 
 **NEVER use `react-dom/server` in route handlers.** Next.js blocks it at the bundler level. Route handlers that return raw HTML use string templates — that is the correct pattern here, not JSX.
 
+**Odyssey light-DOM slotting:** wrap dynamically/conditionally rendered children of container components (`ody-two-column`, `ody-panel`, `ody-modal`, …) in a stable `<div>` present from the first render — children appended after the element upgrades are not re-slotted and render invisibly (passes lint/typecheck/tests; fails only in a browser). See the `odyssey-ui` skill.
+
 ## Iframe-embedded views are client-side SPAs — Server Components do not apply
 
 Any view rendered inside the Peek Pro iframe is a **client-side SPA**. For those routes, do not reach for Server Components, SSR data fetching, or try to "remove the `"use client"` directives to modernize" — that advice is correct for normal Next.js apps but wrong here, and the reason is architectural, not stylistic.

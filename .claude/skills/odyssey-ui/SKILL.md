@@ -78,6 +78,43 @@ Consult the live `ui.md` for that component's real attributes.
 - **Wrap page/settings UI in `<ody-page-container>`** — the standard responsive wrapper
   (~868px narrow / ~1310px wide).
 
+## Dynamically-added children need a stable wrapper (light-DOM gotcha)
+
+These are **light-DOM** components: some (notably container/layout ones like `ody-two-column`,
+`ody-two-column-secondary`, `ody-panel`, `ody-modal`) slot their child nodes **once, when the
+element upgrades**, and do **not** re-slot children a framework appends *afterward*. So a child
+you render **conditionally** (`{open && <Detail/>}`) directly inside such a component can stay
+**invisible** — the element upgraded with that child absent and never picked it up.
+
+The tell: content that's present on first render works, but content added later (on click, after
+a fetch, on selection) shows up in React's tree yet never appears on screen. Lint/typecheck/tests
+all pass — this only reproduces in a real browser.
+
+**Rule: give the component a stable child that's present from the first render, and let your
+framework mutate *inside* it.** Wrap dynamic/conditional content in a plain `<div>`:
+
+```tsx
+// ❌ ReviewDetail is appended to the custom element only after a click — not re-slotted.
+<ody-two-column-secondary>
+  <ody-two-column-secondary-header title="Details" />
+  {selected && <ReviewDetail item={selected} />}
+</ody-two-column-secondary>
+
+// ✅ The <div> is slotted once on upgrade; React owns everything inside it.
+<ody-two-column-secondary>
+  <ody-two-column-secondary-header title="Details" />
+  <div>{selected && <ReviewDetail item={selected} />}</div>
+</ody-two-column-secondary>
+```
+
+(A list already inside a stable wrapper `<div>` works for the same reason — the wrapper, not the
+rows, is what the component slots.) Toggling **attributes** on these components (e.g.
+`secondary-open`) is fine; it's dynamically-added **children** that need the wrapper.
+
+> The component list above is illustrative, not exhaustive — it was diagnosed from symptoms, not
+> the Odyssey source. If a given container component *does* observe late-added children (e.g. via
+> a `MutationObserver`/slot), it won't have this problem; when in doubt, verify in a real browser.
+
 ## Theming / tokens
 
 Override design tokens in CSS rather than hardcoding brand colors:
