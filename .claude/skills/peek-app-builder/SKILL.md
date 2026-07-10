@@ -85,7 +85,7 @@ anything differently (skip, reorder, re-emphasize). Then begin.
 
 | Step | What it covers | Lean on |
 | --- | --- | --- |
-| 1. **Discover purpose** | What gap in Peek Pro does this fill? Who uses it (account staff / guests / app admin)? What triggers it (a webhook, a schedule, a user action)? What Peek data does it read/change? Tight v1 scope. **Also decide which of these jobs to expose to the App Store AI as MCP tools** — confirm the list with the user. | `peek-backoffice-api`, `peek-webhooks` for what's possible; `peek-mcp-endpoint` for what to expose |
+| 1. **Discover purpose** | What gap in Peek Pro does this fill? Who uses it (account staff / guests / app admin)? What triggers it (a webhook, a schedule, a user action)? What Peek data does it read/change? Tight v1 scope. **Explicitly raise the MCP endpoint here** (built by default): tell the user, **recommend a concrete tool list** derived from the app's jobs, and let them confirm/trim/opt out. Also **flag any stack risk** that could break the endpoint. | `peek-backoffice-api`, `peek-webhooks` for what's possible; `peek-mcp-endpoint` for what to expose |
 | 2. **Mock the UI** | Build an interactive single-file `index.html` Odyssey mockup, iterate until the user is happy. | `odyssey-ui` |
 | 3. **Plan** | Map the **data flow** as rigorously as the UI (source → when → storage → **verified available?**), pick which webhooks vs. SDK calls, note `installDataId` scoping if persistence is added. Write it up using `plan-template.md`. | all platform skills + the installed package (types + `docs/`) + web |
 | 4. **Sign-off (hard gate)** | Present the plan; get an explicit "yes, build this." Call out anything you **couldn't verify in the package/docs** (`TODO(verify)`). **Do not build before this.** | — |
@@ -167,9 +167,12 @@ checklist; this step makes sure the *actual* set for the app you just built reac
   (`PeekAccessService`) — never a raw HTTP/GraphQL call, and never hand-write GraphQL.** See
   `peek-backoffice-api`.
 - **Expose the app's key functionality as an MCP endpoint by default** so the App Store AI
-  orchestrator can drive it without the UI. Reuse the *same* auth as the UI; curate the tool
-  list with the user (reads by default, gate writes). See `peek-mcp-endpoint`. Skip only if the
-  user says the app shouldn't be AI-addressable.
+  orchestrator can drive it without the UI. At first build, **raise it explicitly and recommend a
+  concrete tool list** (don't build or skip it silently); reuse the *same* auth as the UI; curate
+  with the user (reads by default, gate writes); **flag stack risks** that could break it (Node vs
+  Edge runtime, streaming vs serverless limits, stateless sessions). See `peek-mcp-endpoint`. Skip
+  only if the user says the app shouldn't be AI-addressable. **When you later add a feature, keep
+  the MCP tools in sync** (also in `AGENTS.md`).
 - **Treat Peek data as sensitive PII.** Security-first storage/logging/transit; no PII or
   tokens in logs.
 - **Scope persisted data to an `installDataId`** if/when you add a database (the install ID is

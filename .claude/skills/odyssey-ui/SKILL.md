@@ -7,7 +7,9 @@ description: >-
   new <ody-*> element, or generating an interactive HTML mockup for design sign-off. Covers the
   npm vs CDN include paths, the attribute/property/event conventions, and pulling the live
   component docs. Triggers on "Odyssey", "ody-button", "ody-*", "Peek UI", "component",
-  "style the app", "mockup", "design the view".
+  "style the app", "mockup", "design the view", "JSX.IntrinsicElements", "odyssey-elements.d.ts",
+  "env.d.ts", "ody-* attribute not working", "custom element typings", "ody-icon", "icon name",
+  "iconNames", "brand icon", "which icons are available".
 ---
 
 # Odyssey UI — Peek's design system
@@ -51,20 +53,67 @@ The embedded views load Odyssey through the npm package, in two pieces:
 the two CSS files there (copy `view/layout.tsx` or the dashboard example's `layout.tsx`). Then
 use `<ody-*>` tags in your `"use client"` components.
 
-## Typing `<ody-*>` elements for React/TSX
+## Typing `<ody-*>` elements for React/TSX — mind the TWO declaration files
 
-Custom elements need JSX typings or TS complains. This kit declares them in
-`types/odyssey-elements.d.ts` (augmenting `react`'s `JSX.IntrinsicElements`). **When you use an
-`<ody-*>` element not yet listed there, add it** — follow the existing entries, e.g.:
+Custom elements need JSX typings or TS complains. **This kit augments React's
+`JSX.IntrinsicElements` in _two_ different files**, in two different styles — and that overlap
+has caused a real, silent bug. Know both before you add or edit a type:
+
+| File | Style | Role |
+| --- | --- | --- |
+| `app/peek-pro/client/env.d.ts` | `CustomEl<…>` = `DetailedHTMLProps<HTMLAttributes<HTMLElement>, …> & Extra` | **Authoritative.** For any element declared in both files, **this is the declaration that takes effect.** |
+| `types/odyssey-elements.d.ts` | `HTMLAttributes<HTMLElement> & { … }` (richer literal unions, **but no `ref`/`key`** — see below) | Augments the same interface; **loses** to `env.d.ts` for any key they share. |
+
+**These elements are declared in BOTH files** — for them, `env.d.ts` wins:
+`ody-alert`, `ody-button`, `ody-card`, `ody-copy-button`, `ody-divider`, `ody-empty-state`,
+`ody-loading-spinner`, `ody-message`, `ody-status-dot`, `ody-tag`.
+
+**Why it's silent:** `tsconfig.json` has `skipLibCheck: true`, so TS does **not** flag the
+duplicate/conflicting declarations across the two `.d.ts` files. Add an attribute to the *losing*
+file's entry and it compiles cleanly and does **nothing** — the winning declaration is what the
+JSX actually sees. (This is exactly the trap: a prop added to `types/odyssey-elements.d.ts` for,
+say, `ody-button` silently has no effect because `env.d.ts` owns that key.)
+
+**Rules:**
+- **Never declare the same `ody-*` key in both files.** One element, one home — duplicated keys
+  are the whole problem.
+- **Editing an existing element's attributes?** Change it in the file that actually owns it. If
+  the key is in the overlap list above, that's **`env.d.ts`** — editing the other file won't take.
+  Verify the change landed (the new prop should type-check / autocomplete on the element).
+- **Adding a brand-new element?** Put it in **exactly one** file — prefer `env.d.ts` (the
+  authoritative one) so there's no ambiguity. Example (env.d.ts style):
+  ```ts
+  'ody-button': CustomEl<{ variant?: string; disabled?: boolean }>;
+  ```
+- Consult the live `ui.md` for that component's real attributes either way.
+
+### Use a base element type that includes `ref` (and `key`)
+
+Type every `<ody-*>` element with the **`CustomEl`** pattern `env.d.ts` already defines — it is
+the correct base, not bare `HTMLAttributes`:
 
 ```ts
-'ody-button': HTMLAttributes<HTMLElement> & {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'tertiary' | 'danger';
-  size?: 'base' | 'small';
-};
+type CustomEl<Extra = object> =
+  React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & Extra;
+
+// e.g.
+'ody-datepicker': CustomEl<{ /* scalar attributes… */ }>;
 ```
 
-Consult the live `ui.md` for that component's real attributes.
+`DetailedHTMLProps<…>` layers **`ref`** and **`key`** on top of the plain attributes. The bare
+`HTMLAttributes<HTMLElement>` used by `types/odyssey-elements.d.ts` has **neither** — most
+importantly, **no `ref`**. That's a real trap: many Odyssey components are driven **through a
+ref** — you set rich array/object props and attach `CustomEvent` listeners on the element
+instance (datepicker, tabs, table, anything with non-scalar props/events; see "Rich data → JS
+properties" below). Type such an element with bare `HTMLAttributes` and `<ody-datepicker ref={r}>`
+has **no typed `ref`** — an error that can **slip past a local/incremental `tsc` yet fail the next
+clean build** (e.g. Next's `.next/types` regeneration in CI). Always use `CustomEl` so `ref`/`key`
+are present, regardless of whether the element takes rich props today.
+
+> **Validate JSX / custom-element typings with a real `next build`, not just `tsc`.** In practice
+> `tsc --noEmit` passed while `next build` **failed** on exactly this `ref` typing — Next
+> regenerates `.next/types` and type-checks the app in its own pass, so it catches errors a bare
+> `tsc` misses. After any `<ody-*>` typing change, run `next build` (or let CI) before trusting it.
 
 ## Usage conventions (from ui.md)
 
@@ -77,6 +126,44 @@ Consult the live `ui.md` for that component's real attributes.
 - **Content → light-DOM children:** the component renders your child nodes.
 - **Wrap page/settings UI in `<ody-page-container>`** — the standard responsive wrapper
   (~868px narrow / ~1310px wide).
+
+## Finding icon names (`<ody-icon>` and `<ody-brand-icon>`)
+
+Odyssey ships **two** icon sets, each with its own element and lookup function (both documented
+in `@peektravel/app-utilities`'s `dist/ui/index.d.ts` and `docs/ui.md`):
+
+- **Themeable line icons** — `<ody-icon name="…">`; names via **`iconNames()`** (also `iconSvg`,
+  `hasIcon`). They render in `currentColor`.
+- **Brand icons** (logos, illustrations, status art) — `<ody-brand-icon name="…">`; names via
+  **`brandIconNames()`** (also `brandIconSvg`, `hasBrandIcon`).
+
+An unknown `name` renders **nothing** (no error) — a wrong name fails silently, so get it right.
+**There is no file in the package that *enumerates* the names**: the `.d.ts` only declares the
+`iconNames()` / `brandIconNames()` functions (the SVG data lives in the bundle), and `ui.md` just
+says "see `iconNames()`." So you have to obtain the list one of the two ways below.
+
+**Pitfall: you can't just call `iconNames()` from a Node script.** Importing
+`@peektravel/app-utilities/ui` **registers custom elements on import**, which throws
+`ReferenceError: HTMLElement is not defined` under plain Node — the module never finishes loading,
+so the function is unreachable. Instead:
+
+1. **Parse the names out of the bundle** (no DOM needed). The data is a readable object in
+   `node_modules/@peektravel/app-utilities/dist/ui/index.js` — `ICONS` (themeable) and
+   `BRAND_ICONS` (brand), each an `{ "<name>": { viewBox, body } }` map. Extract the keys:
+   ```bash
+   node -e 'const s=require("fs").readFileSync("node_modules/@peektravel/app-utilities/dist/ui/index.js","utf8");
+   console.log([...s.matchAll(/"([a-z][a-z0-9-]*)":\s*\{\s*"viewBox"/g)]
+     .map(m=>m[1]).filter((v,i,a)=>a.indexOf(v)===i).sort().join("\n"))'
+   ```
+2. **Or call the functions in a DOM environment** — run `iconNames()` / `brandIconNames()` in the
+   browser (the app itself) or under jsdom/happy-dom, where `HTMLElement` exists.
+
+Prefer these over guessing, and **don't hardcode a list you can't regenerate** — the set changes
+between versions (v0.2.5 has ≈175 names across both sets, ≈53 of them brand icons).
+
+**Confirmed to exist today** (v0.2.5, themeable): `check-filled`, `close`, `alert-filled`,
+`refresh`, `calendar` — plus common ones like `plus`, `minus`, `check`, `search`, `edit`,
+`delete`, `download`, `export`, `info-filled`, `copy`, `link`, `mail`, `user`, `notifications`.
 
 ## Dynamically-added children need a stable wrapper (light-DOM gotcha)
 
