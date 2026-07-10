@@ -163,21 +163,21 @@ type PeekAuthTokenClaims = {
 like it's a claim you can pluck off `auth`. It isn't. There is no `installDataId` field on the
 claims, and there is no `auth.installDataId`.
 
-`installDataId` is a **data-scoping key you mint yourself**, not an identity Peek hands you in
-the token. Per **peek-backoffice-api**, you compute it at install time as **install ID + install
-timestamp** and persist it (as `currentInstallDataId`) — it exists because the install ID does
-*not* rotate on reinstall, so it can't be the row-scoping key on its own. There is no
-`auth.installDataId` to read. So:
+`installDataId` is a **data-scoping key you derive yourself**, not an identity Peek hands you in
+the token. This starter has **no install webhook**, so nothing mints it "on install" — you
+**get-or-create it lazily on the first authenticated request**, keyed off `auth.installId`, and
+persist it (as `currentInstallDataId`). There is no `auth.installDataId` to read. So:
 
 - To build a Peek client, you need **`installId`** (in the token, or persisted — see
   [Server-to-Peek](#server-to-peek-without-a-user-token)).
-- To scope rows in *your own* database, you use **`installDataId`**, which **you minted and
-  stored** at install time — **never** reach for a non-existent `auth.installDataId`. See
-  **peek-backoffice-api** for exactly how it's minted and how the reinstall wipe works.
+- To scope rows in *your own* database, you use **`installDataId`**, which **you derived (get-or-
+  create) from `auth.installId`** and stored — **never** reach for a non-existent
+  `auth.installDataId`. See **peek-backoffice-api** for exactly how it's derived (and why the
+  reinstall-wipe half is a TODO until an uninstall webhook exists).
 
 Don't confuse the two IDs: `installId` identifies the install for API auth (comes from the
-token/persistence); `installDataId` is the stable key you scope stored data by (you mint it).
-Different values, different sources.
+token/persistence); `installDataId` is the stable key you scope stored data by (you derive it via
+get-or-create). Different values, different sources.
 
 ## The files that own each piece
 

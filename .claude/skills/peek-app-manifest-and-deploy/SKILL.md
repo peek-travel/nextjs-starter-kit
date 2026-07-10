@@ -62,7 +62,8 @@ Development Hub, and **deployment** to your host. This skill covers all three.
 - Register the app; obtain its **app ID** (`PEEK_APP_ID`) and **shared secret**
   (`PEEK_APP_SECRET` — used to verify the peek-auth JWT; see `peek-embed-and-auth`).
 - Confirm the **sandbox** environment and validate there before production. Never test against
-  a live account. `ASK THE MCP` for how sandbox vs. production credentials/endpoints differ.
+  a live account. How sandbox vs. production credentials/endpoints differ is a Development Hub
+  detail — `TODO(verify)` it there or ask the user; don't assume.
 - The app's **runtime** Peek auth is per-install via the token flow — there is **no login the
   developer or user creates**. Registration just provisions the app's identity/keys.
 
@@ -76,10 +77,6 @@ Env is validated by `lib/env.ts` (Zod). Required:
 | `PEEK_APP_ID` | The app's ID / issuer | From the Development Hub |
 | `PEEK_APP_URL` | The app's own public base URL | Used to build the embed redirect target and dev origins |
 | `PEEK_API_URL` | Peek back-office API base | Defaults to `https://app-registry.peeklabs.com/installations-api` |
-
-Optional **build-time only** (the Peek MCP, a build helper — not a runtime dependency):
-`PEEK_MCP_URL` / `PEEK_MCP_TOKEN`. Leave unset if the MCP backend isn't live; the skills fall
-back to baked knowledge.
 
 **Any var an app adds is required too.** As a build introduces persistence or integrations
 (`DATABASE_URL`, a webhook signing secret, third-party API keys), **register each in

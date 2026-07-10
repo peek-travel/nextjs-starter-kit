@@ -7,13 +7,13 @@ description: >-
   endpoint's auth. Every app built on this kit ships an MCP endpoint by default; it reuses the
   same peek-auth token verification as the UI and returns an MCP definition (a list of tools).
   Triggers on "MCP", "MCP endpoint", "expose tools", "tools/list", "tools/call", "App Store AI",
-  "Autopilot", "headless access", "programmatic access", "expose functionality", "what to expose".
+  "headless access", "programmatic access", "expose functionality", "what to expose".
 ---
 
 # The app's MCP endpoint — exposing functionality to the App Store AI
 
 Every app in the Peek Pro App Store exposes its **key functionality through an MCP endpoint**.
-An **AI orchestrator** (the App Store's assistant — e.g. Peek Pro Autopilot) connects to the
+An **AI orchestrator** (the App Store's assistant) connects to the
 MCP endpoints of *all* the apps a user has installed, so the user can act across many apps
 **by chatting with one AI instead of opening each app's iframe UI**. Your job when building an
 app is to make sure the same things a human can do in the UI, the AI can do through the MCP
@@ -22,19 +22,15 @@ endpoint — for the operations that make sense to expose.
 > **This is a runtime surface the app *serves*, not a build-time tool you *call*.** Build it
 > alongside the UI (see "Build it by default" below).
 
-## Two different "MCP"s — do not confuse them
+## What this endpoint is — and where Peek facts come from
 
-This starter kit's world has **two** things called MCP. They point in opposite directions:
+The MCP endpoint is **a runtime surface your app serves** so the App Store AI orchestrator can
+operate it (App Store AI → your app; a route declared in `app.json`; authed with the **same
+peek-auth token as the UI**).
 
-| | **Peek knowledge MCP** (build-time) | **The app's MCP endpoint** (runtime) — *this skill* |
-| --- | --- | --- |
-| Direction | You → Peek | App Store AI → your app |
-| Purpose | Answer `ASK THE MCP` lookups while you build (schema, events, SDK surface) | Let the orchestrator operate the app for the user |
-| Where | `PEEK_MCP_URL` / `PEEK_MCP_TOKEN`, build-time only | A route your app serves, declared in `app.json` |
-| Auth | The build helper's token | The **same peek-auth token as the UI** |
-
-When the orchestrator skill says `ASK THE MCP`, it means the **knowledge MCP** — not the
-endpoint you're building here.
+When you need a concrete Peek fact while building it — the wire protocol, a registry key, an SDK
+method — get it from the **installed `@peektravel/app-utilities` package** (types in
+`dist/index.d.ts` + `docs/`) or the live web doc, and `TODO(verify)` what isn't pinned.
 
 ## Same authentication as the UI — reuse the pipeline, don't reinvent it
 
@@ -82,8 +78,9 @@ export const POST = withPeekAuthentication(
 );
 ```
 
-> **The exact MCP wire protocol / transport is volatile — `ASK THE MCP` (knowledge MCP) or pull
-> the live doc for the precise JSON-RPC methods, the initialize handshake, the transport
+> **The exact MCP wire protocol / transport is volatile — check the installed
+> `@peektravel/app-utilities` package (types + `docs/`) or pull the live doc** for the precise
+> JSON-RPC methods, the initialize handshake, the transport
 > (Streamable HTTP vs. SSE), and how the orchestrator discovers and authenticates to your
 > endpoint.** The shape above (a `tools/list` that returns the definition + a `tools/call` that
 > dispatches) is the stable mental model; pin the concrete contract before shipping and mark any
@@ -160,8 +157,8 @@ without one can't be driven from the App Store assistant. Concretely:
 2. **In the build**, add the `app/peek-pro/mcp` route + tools module, reusing
    `withPeekAuthentication` and the same service-layer functions as the UI.
 3. **Declare the endpoint in `app.json`** so Peek/the orchestrator can find it. The exact
-   registry extendable/key for an MCP endpoint URL is volatile — `ASK THE MCP` / pull the live
-   registry doc for the correct slug, and update the manifest to match (see
+   registry extendable/key for an MCP endpoint URL is volatile — check the installed package
+   (types + `docs/`) / pull the live registry doc for the correct slug, and update the manifest to match (see
    `peek-app-manifest-and-deploy`). `TODO(verify)` the key if the doc doesn't pin it.
 4. **Test it** like any route — auth (401 without a valid token), `tools/list` returns the
    definition, each tool dispatches and stays install-scoped (see `testing-peek-apps`).
@@ -179,8 +176,9 @@ flag that it won't appear to the App Store assistant.
 - **Curate the surface — expose deliberately.** Default to reads; gate writes; never expose
   destructive actions without an explicit user yes. Confirm the tool list with the user.
 - **Treat tool I/O as PII.** Minimum data out, IDs over PII, nothing sensitive in logs.
-- **Don't invent the wire protocol / registry key.** `ASK THE MCP` / live doc for the concrete
-  MCP contract and the manifest slug; `TODO(verify)` gaps — never guess and ship.
+- **Don't invent the wire protocol / registry key.** Get the concrete MCP contract and the
+  manifest slug from the installed package (types + `docs/`) / live doc; `TODO(verify)` gaps —
+  never guess and ship.
 - **JSON responses only.** No `react-dom/server` in the route handler (AGENTS.md).
 
 ## Related skills

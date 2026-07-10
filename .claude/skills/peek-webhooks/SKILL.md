@@ -30,9 +30,10 @@ or implementing, fetch and read:
 https://cdn.jsdelivr.net/npm/@peektravel/app-utilities/docs/webhooks.md
 ```
 
-That doc is the source of truth for concrete config + parser APIs. Use this skill for the
-stable shape and the caveats. **`ASK THE MCP`** for live, account-specific data and the
-signature scheme if the doc doesn't pin it.
+That doc (and the package's types, `@peektravel/app-utilities/dist/index.d.ts`) is the source of
+truth for concrete config + parser APIs. Use this skill for the stable shape and the caveats. If
+the package doc/types don't pin something (e.g. the signature scheme), `TODO(verify)` it and
+check the live web doc — don't guess.
 
 ## What's available today
 
@@ -57,7 +58,8 @@ Two webhooks: **booking events** and **waiver events**.
 
 - **Authenticating the delivery is YOUR responsibility.** The parsers do **not** verify the
   request came from Peek — verify the signature yourself before trusting the payload.
-  `ASK THE MCP` / live doc for the scheme + header name; `TODO(verify)` the algorithm.
+  Check the package `docs/webhooks.md` + types for the scheme + header name; `TODO(verify)` the
+  algorithm (and confirm against the live doc) if the package doesn't pin it.
 - **Parsers never throw on malformed input** — they yield **empty fields** instead of errors.
   A bad delivery won't crash you, but you **must validate the fields you depend on**.
 - **Parsers accept multiple shapes** — the `{ booking: … }` / `{ waiver: … }` envelope, a bare
@@ -86,8 +88,8 @@ tracking state yourself:
 - **Act only on *new* bookings:** keep a store of booking IDs you've already seen; if seen,
   ignore; if not, it's new.
 - **Detect a *specific* change (e.g. a reschedule):** store the old value of the field(s) you
-  care about and compare the incoming value each event. (`ASK THE MCP` / live doc for exact
-  field paths.)
+  care about and compare the incoming value each event. (Check the package types / `docs/` for
+  exact field paths.)
 
 ### Stable keys
 The **booking ID and order ID never change** — use them as keys for stores/caches/lookups,
@@ -102,7 +104,7 @@ Fires when a **waiver agreement signature is created** (`agreement_signature_cre
 - **Parse with `parseWaiverWebhook`** — pure transform, never throws on bad input.
 - Apply the same endpoint rules (you verify the delivery, ack fast, idempotent, scope to
   `installDataId`). For new-vs-seen logic use the same seen-before pattern on a stable
-  identifier (`ASK THE MCP` / live doc for the waiver's ID field; a referenced booking's
+  identifier (check the package types / `docs/` for the waiver's ID field; a referenced booking's
   booking/order IDs stay stable).
 
 ## Related skills

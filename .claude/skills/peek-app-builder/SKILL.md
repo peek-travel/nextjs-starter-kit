@@ -54,16 +54,22 @@ Your real job is **synthesis**. Three sources of truth meet at build time:
 2. **Moving layer — live web search.** Current best practices for Next.js 16 / React 19 / your
    host (Vercel by default) — this ages fast, so research it fresh (and read
    `node_modules/next/dist/docs/` for the framework APIs, per AGENTS.md).
-3. **Hybrid layer — the Peek knowledge MCP.** Peek's frequently-changing facts: current GraphQL
-   schema, webhook/event catalog, install & settings contract, the live SDK surface. Query it for
-   anything marked **`ASK THE MCP`** in the sibling skills. If the MCP is unconfigured/
-   unreachable, fall back to the baked knowledge and **flag every would-be lookup** as
-   "verify before shipping" — never silently fill a gap with a guess.
+3. **Peek specifics — the installed `@peektravel/app-utilities` package.** For Peek's concrete
+   facts — the SDK surface, webhook parsers, Odyssey components, install/settings contract —
+   **read the package itself.** It's the authoritative, version-matched source:
+   - **`node_modules/@peektravel/app-utilities/dist/index.d.ts`** — every public method/type,
+     fully typed with TSDoc and exact return shapes (the SDK surface; see `peek-backoffice-api`).
+   - **`node_modules/@peektravel/app-utilities/docs/`** — the shipped guides, e.g. `docs/ui.md`
+     (Odyssey), `docs/webhooks.md` (webhook config + parsers). (Same files are mirrored on
+     jsdelivr if you need them without installing.)
 
-> **Two different MCPs — keep them straight.** This build-time **knowledge MCP** (what
-> `ASK THE MCP` means) is *not* the same as **the app's own MCP endpoint** — a runtime surface
-> the app you're building *serves* so the App Store's AI orchestrator can operate it without the
-> UI. You build one of the latter by default (see `peek-mcp-endpoint`).
+   **This is the primary research step for anything Peek-specific — inspect the package first.**
+   If a fact genuinely isn't in the types or `docs/`, mark it **`TODO(verify)`**, check the live
+   web doc, and/or **ask the user** — never silently fill the gap with a guess.
+
+> **The app you're building serves its own MCP endpoint by default** — a runtime surface so the
+> App Store's AI orchestrator can operate it without the UI (see `peek-mcp-endpoint`). That's the
+> app exposing *itself*; Peek's own facts still come from the installed package (above).
 
 ## How to interact (every step)
 
@@ -81,8 +87,8 @@ anything differently (skip, reorder, re-emphasize). Then begin.
 | --- | --- | --- |
 | 1. **Discover purpose** | What gap in Peek Pro does this fill? Who uses it (account staff / guests / app admin)? What triggers it (a webhook, a schedule, a user action)? What Peek data does it read/change? Tight v1 scope. **Also decide which of these jobs to expose to the App Store AI as MCP tools** — confirm the list with the user. | `peek-backoffice-api`, `peek-webhooks` for what's possible; `peek-mcp-endpoint` for what to expose |
 | 2. **Mock the UI** | Build an interactive single-file `index.html` Odyssey mockup, iterate until the user is happy. | `odyssey-ui` |
-| 3. **Plan** | Map the **data flow** as rigorously as the UI (source → when → storage → **verified available?**), pick which webhooks vs. SDK calls, note `installDataId` scoping if persistence is added. Write it up using `plan-template.md`. | all platform skills + MCP + web |
-| 4. **Sign-off (hard gate)** | Present the plan; get an explicit "yes, build this." Call out anything MCP-unverified. **Do not build before this.** | — |
+| 3. **Plan** | Map the **data flow** as rigorously as the UI (source → when → storage → **verified available?**), pick which webhooks vs. SDK calls, note `installDataId` scoping if persistence is added. Write it up using `plan-template.md`. | all platform skills + the installed package (types + `docs/`) + web |
+| 4. **Sign-off (hard gate)** | Present the plan; get an explicit "yes, build this." Call out anything you **couldn't verify in the package/docs** (`TODO(verify)`). **Do not build before this.** | — |
 | 5. **Build** | Implement per the plan: new authenticated routes + client fetches, webhook endpoints, the **MCP endpoint (by default)**, Odyssey UI, tests as you go. | `peek-embed-and-auth`, `peek-backoffice-api`, `peek-webhooks`, `peek-mcp-endpoint`, `odyssey-ui`, `testing-peek-apps` |
 | 6. **Validate & ship** | Run lint/typecheck/tests + coverage; **have the user run the app under the Peek framework** (local tunnel or deploy — see below) so the embed actually loads; confirm secrets/PII handling; **hand the user their production env-var checklist** (see below); register in the Development Hub and deploy. | `testing-peek-apps`, `peek-app-manifest-and-deploy` |
 
@@ -168,8 +174,9 @@ checklist; this step makes sure the *actual* set for the app you just built reac
   tokens in logs.
 - **Scope persisted data to an `installDataId`** if/when you add a database (the install ID is
   stable across reinstalls). See `peek-backoffice-api`.
-- **Don't invent Peek endpoint/schema/event details.** Volatile → `ASK THE MCP`; if the MCP is
-  down, mark `TODO(verify)`.
+- **Don't invent Peek endpoint/schema/event details.** Resolve them from the installed
+  `@peektravel/app-utilities` package (types in `dist/index.d.ts` + `docs/`); if a fact isn't
+  there, mark `TODO(verify)`, check the live doc, and/or ask the user — never guess.
 - **Plan the data flow, not just the UI — and verify each field actually exists** before
   building. An app built on absent data won't work.
 - **Ship with tests.** Keep the Vitest suite green and meaningful (see `testing-peek-apps`).
