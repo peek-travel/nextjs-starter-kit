@@ -16,6 +16,8 @@ The POST flow (`app/peek-pro/main/route.ts`) exists only because `page.tsx` cann
 
 **Odyssey light-DOM slotting:** wrap dynamically/conditionally rendered children of container components (`ody-two-column`, `ody-panel`, `ody-modal`, …) in a stable `<div>` present from the first render — children appended after the element upgrades are not re-slotted and render invisibly (passes lint/typecheck/tests; fails only in a browser). See the `odyssey-ui` skill.
 
+**Keep the MCP tools in sync with new features.** If this app ships an MCP endpoint (`app/peek-pro/mcp` — most apps do; see the `peek-mcp-endpoint` skill), then whenever you add or change a user-facing capability that's meaningful to expose, add or update the matching MCP tool in the *same* change, reusing the same service-layer function the UI uses. A new UI action with no corresponding tool — or a tool left pointing at old behavior — is drift the App Store assistant will act on incorrectly. (Skip only if the app has deliberately no MCP endpoint.)
+
 ## Iframe-embedded views are client-side SPAs — Server Components do not apply
 
 Any view rendered inside the Peek Pro iframe is a **client-side SPA**. For those routes, do not reach for Server Components, SSR data fetching, or try to "remove the `"use client"` directives to modernize" — that advice is correct for normal Next.js apps but wrong here, and the reason is architectural, not stylistic.

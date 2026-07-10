@@ -9,9 +9,9 @@
 - **Who uses it:** <account staff / guests / app admin>
 - **Trigger(s):** <webhook event(s) / schedule / user action>
 
-## 2. Peek integration (confirm via the MCP — mark `TODO(verify)` if MCP unavailable)
-- **Webhooks/events consumed:** <event names + payload fields> — `ASK THE MCP` · see `peek-webhooks`
-- **SDK calls made:** <`PeekAccessService` methods> — `ASK THE MCP` · see `peek-backoffice-api`
+## 2. Peek integration (confirm against the installed package — mark `TODO(verify)` if not found)
+- **Webhooks/events consumed:** <event names + payload fields> — check `@peektravel/app-utilities` `docs/webhooks.md` + types · see `peek-webhooks`
+- **SDK calls made:** <`PeekAccessService` methods> — check `@peektravel/app-utilities` `dist/index.d.ts` · see `peek-backoffice-api`
 - **Resources touched:** <products/activities · availability · bookings · orders · payments · customers>
 - **Auth:** identity from the peek-auth token via the API pipeline (NO own login). See `peek-embed-and-auth`.
 
@@ -25,7 +25,7 @@ available via the SDK / webhook payload / npm model. Don't list a field you have
 
 | Data item | Source (SDK call · webhook field · app-derived) | When (webhook / user action / schedule) | Stored where (if persisted) | Verified available? |
 | --- | --- | --- | --- | --- |
-| <e.g. guest count> | <booking webhook → parseBookingWebhook → guests> | on booking webhook | <table.field or "in-memory only"> | ⬜ verify via MCP/doc |
+| <e.g. guest count> | <booking webhook → parseBookingWebhook → guests> | on booking webhook | <table.field or "in-memory only"> | ⬜ verify in package types/`docs/` |
 
 > Any row not marked verified must be resolved (find the real source or change the design)
 > **before sign-off**. An app built on assumed-but-absent data won't work.
@@ -44,14 +44,13 @@ Phase 0 ships no DB. If this app needs one:
 ## 6. Security
 - Secrets in the host's secret store (Vercel env vars by default; Neon `DATABASE_URL`
   server-only) — never in the repo or client bundle. See `peek-app-manifest-and-deploy`.
-- Webhook delivery verification (you verify it — scheme: `ASK THE MCP`); idempotent handlers.
+- Webhook delivery verification (you verify it — scheme: see `@peektravel/app-utilities` `docs/webhooks.md` + types); idempotent handlers.
 - No PII or tokens in logs.
 
 ## 7. Setup the user must do (drives step 6)
 - [ ] Peek **Development Hub** access + app registration (app ID + `PEEK_APP_SECRET`)
 - [ ] Host project (Vercel by default) created + env/secrets set
 - [ ] Database (Neon) project + `DATABASE_URL` — only if the plan needs persistence
-- [ ] Build-time Peek MCP: `PEEK_MCP_URL` / `PEEK_MCP_TOKEN` (optional; falls back if unset)
 - [ ] <any other API keys the plan calls for>
 
 ## 8. v1 scope (and explicit non-goals)
