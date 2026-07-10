@@ -84,7 +84,7 @@ anything differently (skip, reorder, re-emphasize). Then begin.
 | 3. **Plan** | Map the **data flow** as rigorously as the UI (source → when → storage → **verified available?**), pick which webhooks vs. SDK calls, note `installDataId` scoping if persistence is added. Write it up using `plan-template.md`. | all platform skills + MCP + web |
 | 4. **Sign-off (hard gate)** | Present the plan; get an explicit "yes, build this." Call out anything MCP-unverified. **Do not build before this.** | — |
 | 5. **Build** | Implement per the plan: new authenticated routes + client fetches, webhook endpoints, the **MCP endpoint (by default)**, Odyssey UI, tests as you go. | `peek-embed-and-auth`, `peek-backoffice-api`, `peek-webhooks`, `peek-mcp-endpoint`, `odyssey-ui`, `testing-peek-apps` |
-| 6. **Validate & ship** | Run lint/typecheck/tests + coverage; **have the user run the app under the Peek framework** (local tunnel or deploy — see below) so the embed actually loads; confirm secrets/PII handling; register in the Development Hub and deploy. | `testing-peek-apps`, `peek-app-manifest-and-deploy` |
+| 6. **Validate & ship** | Run lint/typecheck/tests + coverage; **have the user run the app under the Peek framework** (local tunnel or deploy — see below) so the embed actually loads; confirm secrets/PII handling; **hand the user their production env-var checklist** (see below); register in the Development Hub and deploy. | `testing-peek-apps`, `peek-app-manifest-and-deploy` |
 
 Don't skip discovery/mockup, and **don't build before sign-off (step 4)**.
 
@@ -116,6 +116,42 @@ webhook derivation, ID normalization, tool dispatch — see `testing-peek-apps`)
 yourself, but for "does it actually run in the embed," **notify the user to run
 `npx @peektravel/app-cli dev` or deploy** — that's their step, not yours.
 
+## Before deploy: hand the user their production env-var checklist
+
+Ending a build **must** include an explicit, copy-pasteable list of the environment variables
+the app needs in production — the single most common "the app 401s / won't boot after deploy"
+cause is a var that's set locally but never added to the host. Don't assume the user knows which
+ones; `lib/env.ts` fails **loud at runtime** if any required var is missing (see the misconfig
+→ 500 guidance in `peek-embed-and-auth`), so a forgotten var is a broken deploy, not a warning.
+
+**The list is dynamic — don't just parrot the base four.** Derive it at the end of *this* build:
+
+1. Start with the kit's required runtime vars: **`PEEK_APP_SECRET`**, **`PEEK_APP_ID`**,
+   **`PEEK_APP_URL`**, and **`PEEK_API_URL`** (only if you overrode the default).
+2. Add **every var this build introduced** — grep the code you wrote for `process.env.` and read
+   `lib/env.ts`. Anything you added there (a `DATABASE_URL` for Neon, a third-party API key, a
+   webhook signing secret, an SSE/queue URL) belongs on the list. **Any new runtime var must be
+   registered in `lib/env.ts`'s Zod schema** so it's validated on boot — if it's read from
+   `process.env` but not in the schema, add it, then include it here.
+3. Mark each as **secret** (host secret store only, never committed — `PEEK_APP_SECRET`,
+   `DATABASE_URL`, API keys) or **non-secret config** (`PEEK_APP_ID`, `PEEK_APP_URL`).
+
+Then present it verbatim, e.g.:
+
+> **Before you deploy, set these in your host (Vercel → Settings → Environment Variables):**
+> - `PEEK_APP_SECRET` — secret (from the Development Hub)
+> - `PEEK_APP_ID` — config (from the Development Hub)
+> - `PEEK_APP_URL` — config (your deployed base URL; must match `app.json` `base_url`)
+> - `PEEK_API_URL` — config (only if overriding the default)
+> - `DATABASE_URL` — secret (Neon; server-only) *(only if this build added persistence)*
+> - …any other var this build introduced
+>
+> The app validates these on boot and will 500 on the first request if any required one is
+> missing — so set them **before** you flip traffic to the deploy.
+
+See `peek-app-manifest-and-deploy` §3 for the canonical var table and the first-time-deploy
+checklist; this step makes sure the *actual* set for the app you just built reaches the user.
+
 ## Hard rules (do not violate)
 
 - **Never build your own login for the embedded surface.** Identity comes from Peek via the
@@ -137,6 +173,9 @@ yourself, but for "does it actually run in the embed," **notify the user to run
 - **Plan the data flow, not just the UI — and verify each field actually exists** before
   building. An app built on absent data won't work.
 - **Ship with tests.** Keep the Vitest suite green and meaningful (see `testing-peek-apps`).
+- **End every build with the production env-var checklist.** List the exact vars this app needs
+  (base four + anything the build added), flag secret vs config, and tell the user to set them in
+  the host **before** deploying. Register any new var in `lib/env.ts`. See "Before deploy" above.
 - **Never run/validate the app with `next dev` or a generic emulator.** It needs the Peek
   framework (iframe host + parent-frame token + App Store registration). To see it actually run,
   **notify the user to run `npx @peektravel/app-cli dev`** (local tunnel registered with the App

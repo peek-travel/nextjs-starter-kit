@@ -81,6 +81,14 @@ Optional **build-time only** (the Peek MCP, a build helper — not a runtime dep
 `PEEK_MCP_URL` / `PEEK_MCP_TOKEN`. Leave unset if the MCP backend isn't live; the skills fall
 back to baked knowledge.
 
+**Any var an app adds is required too.** As a build introduces persistence or integrations
+(`DATABASE_URL`, a webhook signing secret, third-party API keys), **register each in
+`lib/env.ts`'s Zod schema** so it's validated on boot, and add it to the production set. The
+four above are the kit's baseline, **not** the whole list for a finished app. At the end of a
+build, hand the user the complete, app-specific set (see the "Before deploy: env-var checklist"
+step in `peek-app-builder`) — a var that's set locally but missing on the host is the most
+common post-deploy failure (the app 500s on first request; see `peek-embed-and-auth`).
+
 **Secret hygiene:** secrets live in your **host's secret store** — Vercel **Environment
 Variables** by default (Project → Settings → Environment Variables), or the equivalent on
 whatever host you choose — never in the repo or the client bundle. If you add Neon, keep the

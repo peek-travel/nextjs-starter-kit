@@ -6,8 +6,11 @@ description: >-
   token handshake, the install/embed entry route, CSP/iframe headers, or when debugging 401s,
   a blank iframe, or "token" / postMessage problems. Explains the POST → redirect → SPA →
   postMessage-token → Bearer-API pipeline and the constraints that force it (no cookies, no
-  SSR data fetching, library-owned verification). Triggers on "add an API route", "authenticate
-  a request", "peek-auth token", "iframe won't load", "401 in the embed", "postMessage token".
+  SSR data fetching, library-owned verification). Also covers calling Peek server-side WITHOUT a
+  user token — install-scoped from a persisted installId — for public pages, webhooks, cron, and
+  background reconciliation. Triggers on "add an API route", "authenticate a request", "peek-auth
+  token", "iframe won't load", "401 in the embed", "postMessage token", "call Peek from a public
+  page", "call Peek without a user token", "createPeekServiceForInstall", "cron/background Peek".
 ---
 
 # Peek Pro embed & auth pipeline
@@ -38,6 +41,11 @@ copy**. That single fact explains every constraint:
 - **Verification is library-owned.** Routes never hand-decode the JWT. They delegate to
   `@peektravel/app-utilities` (`PeekAccessService`), constructed from the app's secret.
 
+This is about the acting **user's identity** — that, and only that, is browser-only. It does
+**not** mean you can't call Peek without a user token. You can, install-scoped, from any
+server context that has a persisted `installId` — see
+[Server-to-Peek without a user token](#server-to-peek-without-a-user-token) below.
+
 ## The request lifecycle (end to end)
 
 ```
@@ -59,6 +67,117 @@ copy**. That single fact explains every constraint:
 route exists only to convert Peek's POST into a redirect to the GET view. Verifying here would
 be pointless: the token can't be forwarded (no cookies) and the GET view is openly reachable
 anyway. Real auth happens per-API-request in step 7. Don't add verification to this route.
+
+## Server-to-Peek without a user token
+
+The pipeline above is one of two ways to reach Peek — the one that carries the *acting user's*
+identity. But **you do not need a user token to call Peek at all.** Look at what
+`createPeekService` actually consumes:
+
+```ts
+// lib/peek-service.ts — the ONLY thing it reads off the claims is installId
+export function createPeekService(auth: PeekAuthTokenClaims): PeekAccessService {
+  const env = parseEnv();
+  return new PeekAccessService({
+    installId: auth.installId,     // ← the entire user-token contribution
+    jwtSecret: env.PEEK_APP_SECRET, // ← everything else is your app's own secret/config
+    issuer: env.PEEK_APP_ID,
+    appId: env.PEEK_APP_ID,
+    gatewayKey: env.PEEK_APP_ID,
+    baseUrl: env.PEEK_API_URL,
+    mode: "v2",
+  });
+}
+```
+
+`PeekAccessService` **mints its own API tokens** from `installId` + `PEEK_APP_SECRET`. The
+peek-auth JWT is not a Peek API credential — it's just how the browser tells the server *which
+install* is acting. So **any `installId` you have persisted lets you build a fully functional,
+install-scoped Peek client server-side**, with no user token and no browser in the loop.
+
+That is the load-bearing fact behind every non-embedded server path:
+
+- **Public (non-embedded) pages** — a customer-facing page with no Peek iframe and no user JWT
+  that still needs to read/write Peek data (e.g. a public waitlist page reconciling into Peek).
+- **Webhooks** — a Peek → your-endpoint delivery carries the `installId`; act on it immediately
+  (see the **peek-webhooks** skill).
+- **Cron / background jobs / reconciliation** — iterate persisted installs and sync each one on
+  a schedule, with no request in flight at all.
+
+**Where the `installId` comes from:** you persist it during the app's lifecycle — from the
+install/webhook registration, or captured from a verified user token during an embedded session
+— and store it against your own records. It is not secret and not a credential on its own; it's
+only useful combined with `PEEK_APP_SECRET`, which never leaves the server.
+
+**Recipe: an install-scoped client with no user token.** Add a sibling to `createPeekService`
+that takes the `installId` directly. Both construct the exact same service:
+
+```ts
+// lib/peek-service.ts
+export function createPeekServiceForInstall(installId: string): PeekAccessService {
+  const env = parseEnv();
+  return new PeekAccessService({
+    installId,
+    jwtSecret: env.PEEK_APP_SECRET,
+    issuer: env.PEEK_APP_ID,
+    appId: env.PEEK_APP_ID,
+    gatewayKey: env.PEEK_APP_ID,
+    baseUrl: env.PEEK_API_URL,
+    mode: "v2",
+  });
+}
+
+// createPeekService(auth) can then just delegate:
+//   export const createPeekService = (auth: PeekAuthTokenClaims) =>
+//     createPeekServiceForInstall(auth.installId);
+```
+
+```ts
+// e.g. a public route / cron job — no x-peek-auth header, no token gate
+import { createPeekServiceForInstall } from "@/lib/peek-service";
+
+const peek = createPeekServiceForInstall(installId); // installId from YOUR store
+const activities = await peek.getAllActivities();     // full install-scoped API access
+```
+
+**Guardrails.** This bypasses user-identity checks by design, so the `installId` must come from
+a trusted server-side source (your DB, a verified webhook), **never** from a query param or
+request body a caller can forge — that would let anyone act on any install. The browser-token
+pipeline is still correct for *embedded* API routes: it proves *which* install the live user
+belongs to. Use `createPeekServiceForInstall` for the paths where there is no live user.
+
+## What's actually in the token — and what isn't (`installDataId`)
+
+The verified claims are **smaller than people assume**. `PeekAuthTokenClaims` is only:
+
+```ts
+type PeekAuthTokenClaims = {
+  installId: string;        // which install is acting — the ONLY field you build the service from
+  displayVersion: string;   // the app version Peek loaded
+  user: { /* acting user identity — PII; don't log */ };
+};
+```
+
+**`installDataId` is NOT in the token.** This trips people up because this skill and
+**peek-backoffice-api** both tell you to *scope persisted data by `installDataId`* — which reads
+like it's a claim you can pluck off `auth`. It isn't. There is no `installDataId` field on the
+claims, and there is no `auth.installDataId`.
+
+`installDataId` is a **data-scoping key you mint yourself**, not an identity Peek hands you in
+the token. Per **peek-backoffice-api**, you compute it at install time as **install ID + install
+timestamp** and persist it (as `currentInstallDataId`) — it exists because the install ID does
+*not* rotate on reinstall, so it can't be the row-scoping key on its own. There is no
+`auth.installDataId` to read. So:
+
+- To build a Peek client, you need **`installId`** (in the token, or persisted — see
+  [Server-to-Peek](#server-to-peek-without-a-user-token)).
+- To scope rows in *your own* database, you use **`installDataId`**, which **you minted and
+  stored** at install time — **never** reach for a non-existent `auth.installDataId`. See
+  **peek-backoffice-api** for exactly how it's minted and how the reinstall wipe works.
+
+Don't confuse the two IDs: `installId` identifies the install for API auth (comes from the
+token/persistence); `installDataId` is the stable key you scope stored data by (you mint it).
+Different values, different sources.
 
 ## The files that own each piece
 
@@ -110,6 +229,67 @@ const { data } = await apiFetch<{ data: Thing[] }>("/peek-pro/main/api/<thing>")
 dashboard example's `layout.tsx`). **Exactly one requester per mounted subtree** — descendants
 read the cached token via `apiFetch`, they don't post their own request.
 
+## Make auth failures diagnosable: 500 for misconfig, 401 for a bad token
+
+As written, `requirePeekAuth` wraps verification in a **bare `catch` that returns a naked
+401** and logs nothing. That has bitten a real deploy: when the `PEEK_APP_*` env vars were
+misconfigured, `parseEnv()` threw *inside* `verifyPeekAuthToken`, the `catch` swallowed it, and
+**every route returned 401 with zero signal** — indistinguishable from a genuine bad token. The
+"app isn't working" hunt was slow purely because a server misconfig masqueraded as an auth
+failure.
+
+Two failure modes are collapsed into one response. Split them:
+
+- **Config error** (`parseEnv` threw — a missing/invalid `PEEK_APP_SECRET`, `PEEK_APP_ID`, …):
+  the *deploy* is broken, not the caller. Return **500** and log loudly. A 500 tells you
+  instantly "fix the environment," not "the token is bad."
+- **Token verification failure** (expired, wrong signature, wrong issuer): the caller's token
+  is bad. Return **401**, and log the *reason* so it's greppable — distinct from the 500 above.
+
+```ts
+// lib/api-auth.ts — recommended
+export function requirePeekAuth(request: NextRequest): AuthSuccess | AuthFailure {
+  // Fail LOUD on misconfig, OUTSIDE the verify try/catch so it can't be laundered into a 401.
+  try {
+    parseEnv();
+  } catch (err) {
+    // parseEnv's message names the offending vars ("PEEK_APP_SECRET is required") — no secret
+    // VALUES, safe to log. This is the line that turns a silent deploy into a 5-second fix.
+    console.error("peek-auth: server misconfigured", {
+      reason: err instanceof Error ? err.message : "unknown",
+    });
+    return {
+      error: NextResponse.json({ error: "Server configuration error" }, { status: 500 }),
+    };
+  }
+
+  const header = request.headers.get("x-peek-auth");
+  const token = header?.startsWith("Bearer ") ? header.slice(7) : header ?? null;
+  if (!token) return { error: unauthorized() };
+
+  try {
+    return { auth: verifyPeekAuthToken(token) };
+  } catch (err) {
+    // Genuine auth failure. Log the REASON (e.g. "jwt expired") so a bad-token 401 is
+    // distinguishable in logs from the misconfig 500 above. NEVER log the token itself, and
+    // don't log the decoded claims — they carry user PII.
+    console.warn("peek-auth: token verification failed", {
+      reason: err instanceof Error ? err.message : "unknown",
+    });
+    return { error: unauthorized() };
+  }
+}
+```
+
+Logging discipline: log the **reason string only**. Never log the raw token (it's a live
+credential) and never log the decoded claims (they carry user PII — see the
+`installDataId`/PII rules in **peek-backoffice-api**). The `parseEnv` message and the library's
+verify error (`"jwt expired"`, `"invalid signature"`) are both reason-only and safe.
+
+Same split applies anywhere you construct a service from env, including the
+`createPeekServiceForInstall` server paths above: a `parseEnv` throw there is a 500/alerting
+condition, not a client error.
+
 ## Hard rules (violating these breaks the embed silently)
 
 - **Never suggest cookies** for the token, or any redirect-based token carry. They're blocked
@@ -126,6 +306,9 @@ read the cached token via `apiFetch`, they don't post their own request.
   channel, not a second bootstrap.
 - **Keep the `/peek-pro/*` CSP header.** Without `frame-ancestors 'self' *` Peek can't embed
   the app (and drop any `X-Frame-Options: DENY` Next might add).
+- **Never let a config error surface as a 401.** A `parseEnv` throw is a misconfigured deploy —
+  return 500 and log it; only a failed token verification is a 401. Log the failure *reason*,
+  never the token or the decoded claims (PII). See the section above.
 
 ## Related skills
 
