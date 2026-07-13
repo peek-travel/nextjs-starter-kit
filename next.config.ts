@@ -7,16 +7,25 @@ const appHostname = process.env.PEEK_APP_URL
 const nextConfig: NextConfig = {
   transpilePackages: ['@peektravel/app-utilities'],
   allowedDevOrigins: appHostname
-    ? [appHostname, "**.peek.com"]
-    : ["**.peek.com"],
+    ? [appHostname, "**.peek.com", "**.connectngo.com", "**.connectngo-*.com"]
+    : ["**.peek.com", "**.connectngo.com", "**.connectngo-*.com"],
   async headers() {
-    // Only Peek Pro may embed this app. Allow any peek.com / peek.stack host at
-    // any subdomain depth (e.g. foo.peek.com, foo.dev.peek.com, foo.stage.peek.com).
-    // A CSP `*.peek.com` host-source matches any number of leading labels, so it
-    // covers nested subdomains; the bare hosts cover the apex.
+    // Peek Pro and ConnectNGo may embed this app. Allow any peek.com /
+    // peek.stack / connectngo.com host at any subdomain depth (e.g. foo.peek.com,
+    // foo.connectngo.com). A CSP `*.peek.com` host-source matches any number of
+    // leading labels, so it covers nested subdomains; the bare hosts cover the apex.
     // frame-ancestors supersedes X-Frame-Options in modern browsers.
+    //
+    // CNG per-env hosts are listed explicitly: CSP host wildcards are only valid
+    // as the leftmost label (`*.host`), so the mid-label `*.connectngo-*.com`
+    // cannot be a single source. Envs: staging, demo, qa, training.
     const frameAncestors =
-      "frame-ancestors 'self' *.peek.com peek.com *.peek.stack peek.stack";
+      "frame-ancestors 'self' *.peek.com peek.com *.peek.stack peek.stack " +
+      "*.connectngo.com connectngo.com " +
+      "*.connectngo-staging.com connectngo-staging.com " +
+      "*.connectngo-demo.com connectngo-demo.com " +
+      "*.connectngo-qa.com connectngo-qa.com " +
+      "*.connectngo-training.com connectngo-training.com";
     return [
       {
         // Applies to every route, not just the initial embedded entry route.

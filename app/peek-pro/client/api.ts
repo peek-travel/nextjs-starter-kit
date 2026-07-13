@@ -1,12 +1,14 @@
 let currentToken = "";
 
 /**
- * A trusted Peek origin: any peek.com / peek.stack host at any subdomain depth
- * (foo.peek.com, foo.dev.peek.com, foo.stage.peek.com, …) or the bare apex.
+ * A trusted embedder origin, at any subdomain depth or the bare apex:
+ *   - peek.com / peek.stack        (foo.peek.com, foo.dev.peek.com, …)
+ *   - connectngo.com               (foo.connectngo.com, …)
+ *   - connectngo-<env>.com         (env ∈ staging|demo|qa|training)
  * Mirrors the frame-ancestors allowlist in next.config.ts.
  */
 const PEEK_ORIGIN_RE =
-  /^https?:\/\/([a-z0-9-]+\.)*peek\.(com|stack)$/i;
+  /^https?:\/\/([a-z0-9-]+\.)*(peek\.(com|stack)|connectngo\.com|connectngo-(staging|demo|qa|training)\.com)$/i;
 
 export function isPeekOrigin(origin: string): boolean {
   return PEEK_ORIGIN_RE.test(origin);

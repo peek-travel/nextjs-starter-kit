@@ -74,6 +74,22 @@ describe('isPeekOrigin', () => {
     }
   });
 
+  it('accepts connectngo.com and the fixed set of connectngo-<env>.com at any depth and apex', () => {
+    for (const o of [
+      'https://connectngo.com',
+      'https://foo.connectngo.com',
+      'https://a.b.c.connectngo.com',
+      'https://connectngo-staging.com',
+      'https://foo.connectngo-staging.com',
+      'https://connectngo-demo.com',
+      'https://foo.connectngo-qa.com',
+      'https://connectngo-training.com',
+      'http://foo.connectngo.com',
+    ]) {
+      expect(isPeekOrigin(o)).toBe(true);
+    }
+  });
+
   it('rejects non-Peek and look-alike origins', () => {
     for (const o of [
       'https://evil.com',
@@ -81,6 +97,12 @@ describe('isPeekOrigin', () => {
       'https://peek.com.evil.com',
       'https://peekacom',
       'https://peek.io',
+      'https://notconnectngo.com',
+      'https://connectngo.com.evil.com',
+      'https://xconnectngo-staging.com',
+      'https://connectngo-prod.com',
+      'https://connectngo-evil.com',
+      'https://connectngo.io',
       '',
     ]) {
       expect(isPeekOrigin(o)).toBe(false);
