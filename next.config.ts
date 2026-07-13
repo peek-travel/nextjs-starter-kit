@@ -7,8 +7,8 @@ const appHostname = process.env.PEEK_APP_URL
 const nextConfig: NextConfig = {
   transpilePackages: ['@peektravel/app-utilities'],
   allowedDevOrigins: appHostname
-    ? [appHostname, "**.peek.com", "**.connectngo.com", "**.connectngo-*.com"]
-    : ["**.peek.com", "**.connectngo.com", "**.connectngo-*.com"],
+    ? [appHostname, "**.peek.com", "**.connectngo.com", "**.connectngo-*.com", "**.acmeticketing.net", "**.acmeticketing.com"]
+    : ["**.peek.com", "**.connectngo.com", "**.connectngo-*.com", "**.acmeticketing.net", "**.acmeticketing.com"],
   async headers() {
     // Peek Pro and ConnectNGo may embed this app. Allow any peek.com /
     // peek.stack / connectngo.com host at any subdomain depth (e.g. foo.peek.com,
@@ -25,7 +25,9 @@ const nextConfig: NextConfig = {
       "*.connectngo-staging.com connectngo-staging.com " +
       "*.connectngo-demo.com connectngo-demo.com " +
       "*.connectngo-qa.com connectngo-qa.com " +
-      "*.connectngo-training.com connectngo-training.com";
+      "*.connectngo-training.com connectngo-training.com " +
+      "*.acmeticketing.net acmeticketing.net " +
+      "*.acmeticketing.com acmeticketing.com";
     return [
       {
         // Applies to every route, not just the initial embedded entry route.

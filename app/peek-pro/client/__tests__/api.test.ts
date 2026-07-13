@@ -90,6 +90,19 @@ describe('isPeekOrigin', () => {
     }
   });
 
+  it('accepts acmeticketing.net / .com at any subdomain depth and the apex', () => {
+    for (const o of [
+      'https://acmeticketing.net',
+      'https://foo.acmeticketing.net',
+      'https://a.b.c.acmeticketing.net',
+      'http://foo.acmeticketing.net',
+      'https://acmeticketing.com',
+      'https://foo.acmeticketing.com',
+    ]) {
+      expect(isPeekOrigin(o)).toBe(true);
+    }
+  });
+
   it('rejects non-Peek and look-alike origins', () => {
     for (const o of [
       'https://evil.com',
@@ -103,6 +116,9 @@ describe('isPeekOrigin', () => {
       'https://connectngo-prod.com',
       'https://connectngo-evil.com',
       'https://connectngo.io',
+      'https://acmeticketing.net.evil.com',
+      'https://notacmeticketing.net',
+      'https://acmeticketing.io',
       '',
     ]) {
       expect(isPeekOrigin(o)).toBe(false);

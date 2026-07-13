@@ -5,10 +5,11 @@ let currentToken = "";
  *   - peek.com / peek.stack        (foo.peek.com, foo.dev.peek.com, …)
  *   - connectngo.com               (foo.connectngo.com, …)
  *   - connectngo-<env>.com         (env ∈ staging|demo|qa|training)
+ *   - acmeticketing.net / .com     (foo.acmeticketing.net, …)
  * Mirrors the frame-ancestors allowlist in next.config.ts.
  */
 const PEEK_ORIGIN_RE =
-  /^https?:\/\/([a-z0-9-]+\.)*(peek\.(com|stack)|connectngo\.com|connectngo-(staging|demo|qa|training)\.com)$/i;
+  /^https?:\/\/([a-z0-9-]+\.)*(peek\.(com|stack)|connectngo\.com|connectngo-(staging|demo|qa|training)\.com|acmeticketing\.(net|com))$/i;
 
 export function isPeekOrigin(origin: string): boolean {
   return PEEK_ORIGIN_RE.test(origin);
